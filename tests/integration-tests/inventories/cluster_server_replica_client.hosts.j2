@@ -1,0 +1,23 @@
+[ipaserver]
+{{ ipa_domain.master.name }}
+
+[ipaserver:vars]
+ipaserver_setup_dns=yes
+ipaserver_forwarders={{ dns_forwarder }}
+
+[ipareplicas]
+{{ ipa_domain.replicas[0].name }}
+
+[ipaclients]
+{{ ipa_domain.clients[0].name }}
+
+[ipa:children]
+ipaserver
+ipareplicas
+ipaclients
+
+[ipa:vars]
+ipaadmin_password={{ admin_password }}
+ipadm_password={{ dirman_password }}
+ipaserver_domain={{ ipa_domain.name }}
+ipaserver_realm={{ ipa_domain.realm }}

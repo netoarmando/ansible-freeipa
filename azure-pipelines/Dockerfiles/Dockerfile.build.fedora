@@ -1,0 +1,20 @@
+FROM fedora:31
+MAINTAINER [FreeIPA Developers freeipa-devel@lists.fedorahosted.org]
+ENV container=docker LANG=en_US.utf8 LANGUAGE=en_US.utf8 LC_ALL=en_US.utf8
+
+RUN echo 'deltarpm = false' >> /etc/dnf/dnf.conf \
+    && dnf update -y dnf \
+    && dnf install -y dnf-plugins-core sudo wget systemd firewalld nss-tools iptables \
+    && sed -i 's/%_install_langs \(.*\)/\0:fr/g' /etc/rpm/macros.image-language-conf \
+    && dnf install -y glibc-langpack-fr glibc-langpack-en \
+    && dnf install -y openssh-server \
+    && dnf install -y ansible python3-pytest-multihost \
+    && dnf install -y ansible-freeipa \
+    && dnf clean all \
+    && sed -i 's/.*PermitRootLogin .*/#&/g' /etc/ssh/sshd_config \
+    && echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config \
+    && systemctl enable sshd
+
+STOPSIGNAL RTMIN+3
+VOLUME ["/ansible-freeipa", "/run", "/tmp"]
+ENTRYPOINT [ "/usr/sbin/init" ]

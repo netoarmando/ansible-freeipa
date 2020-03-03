@@ -1,0 +1,62 @@
+trigger:
+- azure-pipelines
+
+variables:
+- template: templates/variables-common.yml
+
+jobs:
+- job: Build
+  pool:
+    vmImage: $(VM_IMAGE)
+  container:
+    image: 'registry.fedoraproject.org/f31/fedora-toolbox'
+    options: --cap-add=SYS_PTRACE --security-opt seccomp=unconfined --privileged
+  steps:
+    - template: templates/prepare-build-fedora.yml
+    # - script: |
+    #     set -e
+    #     echo "Running autoconf generator"
+    #     ./autogen.sh
+    #   displayName: Configure the project
+    # - script: |
+    #     set -e
+    #     git update-ref refs/heads/$(System.PullRequest.TargetBranch) origin/$(System.PullRequest.TargetBranch)
+    #     make V=0 "GIT_BRANCH=$(System.PullRequest.TargetBranch)" fastlint
+    #   displayName: Quick code style check
+    #   condition: eq(variables['Build.Reason'], 'PullRequest')
+    # - template: templates/build-fedora.yml
+    # - template: templates/publish-build.yml
+    #   parameters:
+    #     artifactName: 'packages-$(Build.BuildId)-$(Agent.OS)-$(Agent.OSArchitecture)'
+    #     targetPath: $(Build.Repository.LocalPath)
+    #     displayName: Publish packages
+    - script: |
+        set -e
+        mkdir container
+        cp $(IPA_TESTS_DOCKERFILES)/Dockerfile.build.fedora container/Dockerfile
+        cd container
+        docker build -t freeipa-azure-builder .
+        docker save freeipa-azure-builder | gzip > '$(builddir)/freeipa-azure-builder-container.tar.gz'
+      displayName: Create container image for test
+    - template: templates/publish-build.yml
+      parameters:
+        artifactName: 'image-$(Build.BuildId)-$(Agent.OS)-$(Agent.OSArchitecture)'
+        targetPath: $(Build.Repository.LocalPath)/freeipa-azure-builder-container.tar.gz
+        displayName: Publish container image
+    - template: templates/generate-matrix.yml
+      parameters:
+        definition: 'azure-pipelines/azure_definitions/gating.yml'
+        displayName: Generate Matrix for Gating tests
+        name: gating_matrix
+
+- job: GATING
+  pool:
+    vmImage: $(VM_IMAGE)
+  dependsOn: Build
+  condition: succeeded()
+  strategy:
+    matrix: $[ dependencies.Build.outputs['gating_matrix.matrix'] ]
+  timeoutInMinutes: 90
+  steps:
+    - template: templates/generate-job-variables.yml
+    - template: templates/test-jobs.yml
