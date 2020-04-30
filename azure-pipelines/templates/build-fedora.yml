@@ -1,0 +1,6 @@
+steps:
+- script: |
+    set -e
+    echo "Moving repo"
+    cp -R > dist
+  displayName: Build packages

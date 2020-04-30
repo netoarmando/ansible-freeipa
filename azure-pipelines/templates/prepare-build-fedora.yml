@@ -1,0 +1,31 @@
+steps:
+- script: |
+    set -e
+    sudo rm -rf /var/cache/dnf/*
+    echo "dnf.conf: enable fastestmirror, use 8 download workers, lower timeout to fail faster, and add more retries"
+    sudo tee -a /etc/dnf/dnf.conf <<EOF > /dev/null
+    fastestmirror = True
+    max_parallel_downloads = 8
+    timeout = 8
+    retries = 20
+    EOF
+    echo "Fedora mirror metalink content:"
+    for metalink in $(sudo dnf repolist -v |grep Repo-metalink | awk '{print $2}' ) ; do echo '###############' ; echo '####' ; echo $metalink ; echo '####' ; curl $metalink ; done
+    echo "Fastestmirror results:"
+    sudo cat /var/cache/dnf/fastestmirror.cache
+    sudo dnf makecache || :
+    echo "Installing base development environment"
+    sudo dnf install -y \
+        gdb-minimal \
+        make \
+        autoconf \
+        rpm-build \
+        gettext-devel \
+        automake \
+        libtool \
+        docker \
+        python3-paramiko \
+        python3-pyyaml \
+
+    echo "Dependencies installed"
+  displayName: Prepare build environment
